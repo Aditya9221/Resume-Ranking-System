@@ -9,14 +9,9 @@ from sklearn.metrics.pairwise import cosine_similarity
 import nltk
 from nltk.corpus import stopwords
 
-# Download once
 nltk.download('stopwords')
 
-app = FastAPI(
-    title="Resume Ranking API",
-    description="Ranks resumes based on job description",
-    version="1.0"
-)
+app = FastAPI()
 
 # Load data
 resume_df = pd.read_csv('Resumes.csv', encoding='latin1')
@@ -46,7 +41,6 @@ def rank_resumes(job_title: str, top_k: int = 10):
 
     job_title_input = job_title.lower().strip()
 
-    # Find closest matching job title
     job_titles = job_df['job_title'].str.lower().tolist()
     matches = get_close_matches(job_title_input, job_titles, n=1, cutoff=0.3)
 
@@ -58,12 +52,11 @@ def rank_resumes(job_title: str, top_k: int = 10):
 
     job_description = filtered_job.iloc[0]['job_description']
 
-    # Keyword filtering
     keywords = job_title_input.split()
 
     filtered_resumes = resume_df[
         resume_df['Resume_str'].str.lower().apply(
-            lambda x: any(k in x for k in keywords)
+            lambda x: all(k in x for k in keywords)   
         )
     ]
 
@@ -77,8 +70,7 @@ def rank_resumes(job_title: str, top_k: int = 10):
     filtered_resumes['clean_resume'] = filtered_resumes['Resume_str'].apply(clean_text)
     clean_job_description = clean_text(job_description)
 
-    # TF-IDF
-    tfidf = TfidfVectorizer()
+    tfidf = TfidfVectorizer(stop_words='english')
 
     all_text = filtered_resumes['clean_resume'].tolist()
     all_text.append(clean_job_description)
