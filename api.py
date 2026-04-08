@@ -39,7 +39,6 @@ def home():
 @app.get("/rank")
 def rank_resumes(job_title: str, top_k: int = 10):
 
-    # ✅ Case-insensitive + flexible matching
     filtered_job = job_df[
         job_df['job_title'].str.lower().str.strip().str.contains(job_title.lower().strip(), na=False)
     ]
