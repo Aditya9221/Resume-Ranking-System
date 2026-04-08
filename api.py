@@ -8,7 +8,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 import nltk
 from nltk.corpus import stopwords
 
-# download once
 nltk.download('stopwords')
 
 app = FastAPI()
@@ -17,7 +16,7 @@ app = FastAPI()
 resume_df = pd.read_csv('Resumes.csv', encoding='latin1')
 job_df = pd.read_csv('job_title_des.csv', encoding='latin1')
 
-# Clean column names
+# Clean columns
 job_df.columns = job_df.columns.str.lower().str.strip().str.replace(' ', '_')
 
 # Stopwords
@@ -41,6 +40,7 @@ def rank_resumes(job_title: str, top_k: int = 10):
 
     job_title_input = job_title.lower().strip()
 
+    # Find job
     filtered_job = job_df[
         job_df['job_title'].str.lower().str.contains(job_title_input, na=False)
     ]
@@ -50,17 +50,25 @@ def rank_resumes(job_title: str, top_k: int = 10):
 
     job_description = filtered_job.iloc[0]['job_description']
 
+    # Combine title + description
     combined_text = job_title_input + " " + str(job_description)
 
     keywords = job_title_input.split()
 
-    filtered_resumes = resume_df[
-        resume_df['Resume_str'].str.lower().apply(
-            lambda x: any(k in x for k in keywords)
-        )
-    ]
+    if len(keywords) > 1:
+        filtered_resumes = resume_df[
+            resume_df['Resume_str'].str.lower().apply(
+                lambda x: all(k in x for k in keywords)
+            )
+        ]
+    else:
+        filtered_resumes = resume_df[
+            resume_df['Resume_str'].str.lower().apply(
+                lambda x: keywords[0] in x
+            )
+        ]
 
-    # fallback if no match
+    # fallback
     if filtered_resumes.empty:
         filtered_resumes = resume_df.copy()
 
@@ -79,20 +87,15 @@ def rank_resumes(job_title: str, top_k: int = 10):
         tfidf_matrix[-1:]
     ).flatten()
 
-    def keyword_score(text):
-        return sum(1 for k in keywords if k in text)
-
-    filtered_resumes['keyword_score'] = filtered_resumes['clean_resume'].apply(keyword_score)
-
-    filtered_resumes['final_score'] = similarity_scores + (filtered_resumes['keyword_score'] * 0.1)
+    filtered_resumes['final_score'] = similarity_scores
 
     ranked_resumes = filtered_resumes.sort_values(
-        by='final_score',
-        ascending=False
+        by = 'final_score',
+        ascending = False
     )
 
     ranked_resumes['resume_preview'] = ranked_resumes['Resume_str'].str[:200]
 
     result = ranked_resumes[['resume_preview', 'final_score']].head(top_k)
 
-    return result.to_dict(orient="records")
+    return result.to_dict(orient = "records")
